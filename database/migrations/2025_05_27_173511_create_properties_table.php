@@ -6,26 +6,21 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up()
     {
         Schema::create('properties', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('user_id')->constrained()->onDelete('cascade');
             $table->string('title');
-            $table->text('description');
-            $table->decimal('price', 15, 2);
-            $table->string('location');
+            $table->decimal('price', 12, 2);
             $table->enum('type', ['rumah', 'apartemen', 'tanah', 'ruko']);
-            $table->foreignId('user_id')->constrained(); // Relasi ke penjual
+            $table->enum('status', ['pending', 'aktif', 'terjual'])->default('pending');
+            $table->text('description')->nullable();
+            $table->string('location');
             $table->timestamps();
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
         Schema::dropIfExists('properties');

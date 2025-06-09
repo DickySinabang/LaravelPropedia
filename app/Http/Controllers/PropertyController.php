@@ -9,24 +9,30 @@ use App\Http\Resources\PropertyResource;
 use Symfony\Component\HttpFoundation\Response;
 use Illuminate\Support\Facades\Auth;
 
-
 class PropertyController extends Controller
 {
     public function __construct()
     {
         $this->middleware('auth:sanctum');
-        $this->authorizeResource(Property::class, 'property');
     }
 
     /**
-     * Get all properties owned by authenticated seller
+     * Get all properties based on user role
      */
     public function index(): JsonResponse
     {
         try {
-            $properties = Property::where('user_id', Auth::id())
-                ->latest()
-                ->get();
+            $user = Auth::user();
+
+            // Jika pembeli, tampilkan semua properti
+            if ($user->role === 'pembeli') {
+                $properties = Property::latest()->get();
+            } else {
+                // Jika penjual, hanya tampilkan properti miliknya
+                $properties = Property::where('user_id', $user->id)
+                    ->latest()
+                    ->get();
+            }
 
             return PropertyResource::collection($properties)
                 ->response()
@@ -41,7 +47,7 @@ class PropertyController extends Controller
     }
 
     /**
-     * Create new property
+     * Create a new property
      */
     public function store(Request $request): JsonResponse
     {
@@ -50,15 +56,22 @@ class PropertyController extends Controller
             'price' => 'required|numeric|min:0',
             'type' => 'required|in:rumah,apartemen,tanah,ruko',
             'description' => 'nullable|string',
-            'location' => 'required|string'
+            'location' => 'required|string',
         ]);
 
         try {
             $user = Auth::user();
-            $property = $user->properties()->create(array_merge(
-                $validated,
-                ['status' => 'pending']
-            ));
+
+            // Tambahkan data user_id agar relasi tersimpan
+            $property = Property::create([
+                'user_id' => $user->id,
+                'title' => $validated['title'],
+                'price' => $validated['price'],
+                'type' => $validated['type'],
+                'description' => $validated['description'] ?? null,
+                'location' => $validated['location'],
+                'status' => 'pending'
+            ]);
 
             return (new PropertyResource($property))
                 ->response()
@@ -72,18 +85,20 @@ class PropertyController extends Controller
         }
     }
 
-
     /**
-     * Update property details
+     * Update a property
      */
     public function update(Request $request, Property $property): JsonResponse
     {
+        $this->authorize('update', $property);
+
         $validated = $request->validate([
             'title' => 'sometimes|string|max:255',
             'price' => 'sometimes|numeric|min:0',
+            'type' => 'sometimes|in:rumah,apartemen,tanah,ruko',
             'status' => 'sometimes|in:aktif,pending,terjual',
             'description' => 'nullable|string',
-            'location' => 'sometimes|string'
+            'location' => 'sometimes|string',
         ]);
 
         try {
@@ -102,10 +117,12 @@ class PropertyController extends Controller
     }
 
     /**
-     * Delete property
+     * Delete a property
      */
     public function destroy(Property $property): JsonResponse
     {
+        $this->authorize('delete', $property);
+
         try {
             $property->delete();
 

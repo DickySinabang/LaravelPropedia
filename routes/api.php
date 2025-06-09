@@ -18,4 +18,7 @@ Route::prefix('v1')->group(function () {
             return $request->user();
         });
     });
+
+    Route::get('/properties', [PropertyController::class, 'index']);
+    Route::post('/properties', [PropertyController::class, 'store']);
 });
